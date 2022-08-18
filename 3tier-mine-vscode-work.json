@@ -1,0 +1,583 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+        "Description": "This template is to provision a 3 tier infrastructure in AWS",
+        "Metadata": {
+    
+        },
+        "Parameters": {
+          
+          "LaunchTemplateVersionNumber": {
+            "Default": 1,
+            "Type": "String"
+          },
+          "KeyName": {
+            "Description": "The EC2 Key Pair to allow SSH access to the instances",
+            "Type": "AWS::EC2::KeyPair::KeyName",
+            "ConstraintDescription": "must be the name of an existing EC2 KeyPair."
+          },
+          
+          "AMIID": {
+              "Description": "This is the AMI for the linux machine",
+              "Type": "String",
+              "Default": "ami-0022f774911c1d690"
+          },
+           
+          
+          "Environment": {
+              "Description": "Application environment",
+              "Type": "String",
+              "Default": "development",
+              "AllowedValues": ["development", "testing", "acceptance", "production"]
+   
+          }, 
+          
+          "VPCCIDR": {
+              "Description": "This is the CIDR for the VPC",
+              "Type": "String",
+              "Default": "10.0.0.0/16"
+          }, 
+          
+          "PubicSubCIDR": {
+              "Description": "This is the CIDR for the public subnet",
+              "Type": "String",
+              "Default": "10.0.1.0/24"
+          }, 
+          
+          "PrivateSub1CIDR": {
+              "Description": "This is the CIDR for private subnet 1",
+              "Type": "String",
+              "Default": "10.0.2.0/24"
+          },
+          
+          "PrivateSub2CIDR": {
+              "Description": "This is the CIDR for the private subnet 2",
+              "Type": "String",
+              "Default": "10.0.3.0/24"
+          }
+          
+        },
+        "Mappings": {
+          
+          "RegionMap": {
+                    "us-east-1": {
+                      "HVM64": "ami-0ff8a91507f77f867",
+                      "HVMG2": "ami-0a584ac55a7631c0c"
+                    },
+                    "us-west-1": {
+                      "HVM64": "ami-0bdb828fd58c52235",
+                      "HVMG2": "ami-066ee5fd4a9ef77f1"
+                    }
+          },
+          
+          "EC2TypeBasedonEnv": {
+                    "development": {
+                      "instanceType": "t2.small",
+                      "KeyName": "dev-key"
+                    },
+                    "testing": {
+                      "instanceType": "t2.large",
+                      "KeyName": "test-key"
+                    },
+                    "production": {
+                      "instanceType": "t2.micro",
+                      "KeyName": "prod-key"
+                    },
+                    "acceptance": {
+                      "instanceType": "t2.nano",
+                      "KeyName": "acc-key"
+                    }
+          }
+    
+        },
+        "Conditions": {
+          "CreateProdResources":  { 
+            "Fn::Equals": [
+          { "Ref": "Environment" }, "production"]
+          }
+    
+        },
+        "Resources": {
+            
+            "mwvpc": {
+              "Type": "AWS::EC2::VPC",
+              "Properties": {
+                "CidrBlock": 
+                { "Ref": "VPCCIDR" }
+                ,
+                "Tags":[
+                { "Key": "Name", "Value":  "mwvpc" }
+                ] 
+              }
+            },
+            
+            "publicsub": {
+              "Type": "AWS::EC2::Subnet",
+              "Properties": {
+                "AvailabilityZone": "us-east-1a",
+                "VpcId": 
+                { "Ref": "mwvpc" }
+                 ,
+                "CidrBlock": 
+                { "Ref": "PubicSubCIDR" }
+                ,
+                "Tags":[
+                { "Key": "Name", "Value":  "publicsub" }
+                ]
+              }
+            },
+            
+            "privatesub": {
+              "Type": "AWS::EC2::Subnet",
+              "Properties": {
+                "AvailabilityZone": "us-east-1a",
+                "VpcId": 
+                { "Ref": "mwvpc" }
+                ,
+                "CidrBlock": 
+                { "Ref": "PrivateSub1CIDR" }
+                , 
+                "Tags":[
+                { "Key": "Name", "Value":  "privatesub" }
+                ]
+              }
+            },
+            
+            "privatesub2": {
+              "Type": "AWS::EC2::Subnet",
+              "Properties": {
+                "AvailabilityZone": "us-east-1a",
+                "VpcId": 
+                { "Ref": "mwvpc" }
+                ,
+                "CidrBlock": 
+                { "Ref": "PrivateSub2CIDR" }
+                ,
+                "Tags":[
+                { "Key": "Name", "Value":  "privatesub2" }
+                ]
+              }
+            },
+            
+            
+            "igwvpc": {
+              "Type": "AWS::EC2::InternetGateway",
+              "Properties": { 
+                "Tags":[
+                { "Key": "Name", "Value":  "igwvpc1" }
+                ]
+              }
+            },
+            "AttachGateway": {
+              "Type": "AWS::EC2::VPCGatewayAttachment",
+              "Properties": {
+                "VpcId": 
+                
+                { "Ref": "mwvpc" }
+                 ,
+                "InternetGatewayId": { "Ref": "igwvpc" }
+              }
+            },
+            
+            "mwrt": {
+              "Type": "AWS::EC2::RouteTable",
+              "Properties": {
+                "VpcId": 
+                { "Ref": "mwvpc" }
+                 ,
+                "Tags":[
+                { "Key": "Name", "Value":  "mwrt" }
+                ]
+              }
+            },
+            
+            "route": {
+              "Type": "AWS::EC2::Route",
+              "Properties": {
+                "RouteTableId": 
+                { "Ref": "mwrt" }
+                ,
+                "DestinationCidrBlock": "0.0.0.0/0",
+                "GatewayId": 
+                { "Ref": "igwvpc" }
+                
+              }
+            },
+            
+            "publicrtassoc": {
+              "Type": "AWS::EC2::SubnetRouteTableAssociation",
+              "Properties": {
+                "SubnetId": 
+                { "Ref": "publicsub" }
+                 ,
+                "RouteTableId": 
+                { "Ref": "mwrt" }
+                
+              }
+            },
+            
+            "pvtrt": {
+              "Type": "AWS::EC2::RouteTable",
+              "Properties": {
+                "VpcId": 
+                { "Ref": "mwvpc" }
+                 ,
+                "Tags":[
+                { "Key": "Name", "Value":  "pvtrt" }
+                ]
+              }
+            },
+            
+            "privatesubnetAssoc": {
+              "Type": "AWS::EC2::SubnetRouteTableAssociation",
+              "Properties": {
+                "SubnetId": 
+                { "Ref": "privatesub" }
+                 ,
+                "RouteTableId": 
+                { "Ref": "pvtrt" }
+                
+              }
+            },
+            
+            "privatesub2assoc": {
+              "Type": "AWS::EC2::SubnetRouteTableAssociation",
+              "Properties": {
+                "SubnetId": 
+                { "Ref": "privatesub2" }
+                 ,
+                "RouteTableId": 
+                { "Ref": "pvtrt" }
+                
+              }
+            },
+            
+            "NATvpc" : {
+              "Type" : "AWS::EC2::NatGateway",
+              "Properties" : {
+                 "AllocationId" : { "Fn::GetAtt" : ["EIP", "AllocationId"]},
+                 "SubnetId" : { "Ref" : "publicsub"},
+                 "Tags" : [ {"Key" : "Name", "Value" : "NATvpc" } ]
+                }
+           },
+           "EIP" : {
+              "DependsOn" : "igwvpc"
+               ,
+              "Type" : "AWS::EC2::EIP",
+              "Properties" : {
+                 "Domain" : 
+                 { "Ref": "mwvpc" }
+                 
+              }
+           }, 
+           "Route" : {
+            "Type" : "AWS::EC2::Route",
+            "Properties" : {
+               "RouteTableId" : { "Ref" : "pvtrt" },
+               "DestinationCidrBlock" : "0.0.0.0/0",
+               "NatGatewayId" : { "Ref" : "NATvpc" }
+            }
+         },
+         
+         "instancesg" : {
+           "Type" : "AWS::EC2::SecurityGroup",
+           "Properties" : {
+             "GroupDescription" : "This is for the security group",
+             "SecurityGroupIngress" : [{
+               "IpProtocol" : "tcp",
+               "FromPort" : 80,
+               "ToPort" : 80,
+               "CidrIp" : "0.0.0.0/0"
+             }],
+             "SecurityGroupEgress" : [{
+                "IpProtocol" : "tcp",
+                "FromPort" : 80,
+                "ToPort" : 80,
+                "CidrIp" : "0.0.0.0/0"
+             }],
+             "VpcId" : 
+             { "Ref": "mwvpc" }
+             ,
+             "Tags":[
+             { "Key": "Name", "Value":  "instancesg" }
+             ]
+           }
+         },
+         "Bastion": {
+          "Type": "AWS::EC2::Instance",
+          "Condition" : "CreateProdResources" ,
+          "Properties": {
+              "KeyName": { 
+                
+                "Fn::FindInMap": [
+                    "EC2TypeBasedonEnv",
+                    
+                    { "Ref": "Environment" }
+                    ,
+                    "KeyName"
+                ]
+                
+              },
+              
+              "ImageId": {
+              
+              "Fn::FindInMap": [
+                  "RegionMap",
+                  
+                  { "Ref": "AWS::Region" }
+                  ,
+                  "HVM64"
+              ]}
+              ,
+              "SubnetId" : 
+              { "Ref": "publicsub" },
+              "InstanceType": { 
+                
+                "Fn::FindInMap": [
+                    "EC2TypeBasedonEnv",
+                    { "Ref": "Environment" },
+                    "instanceType"
+                ]
+                
+               }
+              ,
+              "Monitoring": "false",
+              "SecurityGroupIds" : 
+              [{ "Ref": "instancesg" }]
+              ,
+              "Tags": [
+                  {
+                      "Key": "Name",
+                      "Value": "Bastionhost"
+                  }
+              ]
+      }
+             
+          },
+          
+          "Webserver": {
+            "Type": "AWS::EC2::Instance",
+            "Condition" : "CreateProdResources",
+            "Properties": {
+                "KeyName": 
+                {  "Fn::FindInMap": [
+                  "EC2TypeBasedonEnv",
+                  
+                  { "Ref": "Environment" }
+                  ,
+                  "KeyName"
+              ] },
+                
+                "ImageId": 
+                { "Fn::FindInMap": [
+                  "RegionMap",
+                  
+                  { "Ref": "AWS::Region" }
+                  ,
+                  "HVM64" ]}
+                 ,
+                 "SubnetId" : 
+                 { "Ref": "privatesub" },
+                 
+                "InstanceType": 
+                { "Fn::FindInMap": [
+                  "EC2TypeBasedonEnv",
+                  { "Ref": "Environment" },
+                  "instanceType"
+              ] }
+                 ,
+                "Monitoring": "false",
+                "SecurityGroupIds" : [
+                { "Ref": "instancesg" }
+                ],
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "Webserver"
+                      }
+                  ]
+                  
+          }
+                  },
+          
+          "AppServer": {
+            "Type": "AWS::EC2::Instance",
+            "Condition" : "CreateProdResources",
+            "Properties": {
+                "KeyName": 
+                {  "Fn::FindInMap": [
+                  "EC2TypeBasedonEnv",
+                  
+                  { "Ref": "Environment" }
+                  ,
+                  "KeyName"
+              ] },
+                
+                "ImageId": 
+                { "Fn::FindInMap": [
+                  "RegionMap",
+                  
+                  { "Ref": "AWS::Region" }
+                  ,
+                  "HVM64" ] }
+                 ,
+                 "SubnetId" : 
+                 { "Ref": "privatesub" },
+                 
+                "InstanceType": 
+                { "Fn::FindInMap": [
+                  "EC2TypeBasedonEnv",
+                  { "Ref": "Environment" },
+                  "instanceType"
+              ] }
+                 ,
+                "Monitoring": "false",
+                "SecurityGroupIds" : [
+                { "Ref": "instancesg" }
+                ],
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "AppServer"
+                    }
+                  ]
+                 
+          }, 
+          "DependsOn": "S3Bucket"
+                  },
+          
+          "S3Bucket": {
+            "Type": "AWS::S3::Bucket",
+            "Condition": "CreateProdResources"
+            
+          },
+          "launchTemplate":{
+           "Type":"AWS::EC2::LaunchTemplate",
+            "Properties":{
+              "LaunchTemplateName" : "launchTemplate",
+              "LaunchTemplateData": {
+                "UserData":{
+                  "Fn::Base64": "#!/bin/bash\nyum update -y\nyum install httpd -y\nsystemctl start httpd\nsystemctl enable httpd\n"
+                },
+                "NetworkInterfaces": [{
+                  "DeleteOnTermination": true,
+                  "AssociatePublicIpAddress": true,
+                  "Groups": 
+                  [{"Ref": "instancesg"}] 
+                  
+                }]
+                ,
+                "Placement": {
+                  "Tenancy": "default"
+                },
+                "BlockDeviceMappings": [{
+                  "Ebs": {
+                    "VolumeSize": "20",
+                    "VolumeType": "gp2"
+                  },
+                  "DeviceName": "delandtrial"
+                }],
+                "ImageId": 
+                
+                { "Ref": "AMIID" },
+                "InstanceType":"t2.micro", 
+                "KeyName" : 
+                { "Ref": "KeyName" }
+                
+              
+                }
+               
+            }
+          
+          },
+          "AutoScalingGroup" : {
+      "Type" : "AWS::AutoScaling::AutoScalingGroup",
+      "Properties" : {
+          "AvailabilityZones" : ["us-east-1a"],
+          "LaunchTemplate": {
+            "LaunchTemplateId": 
+            { "Ref": "launchTemplate" }
+            ,
+            "Version": 
+            { "Ref": "LaunchTemplateVersionNumber" }
+            
+          },
+          "VPCZoneIdentifier": [
+            
+            { "Ref": "publicsub" },
+            
+            { "Ref": "privatesub" },
+
+            
+            { "Ref": "privatesub2" }
+            ],
+          "MaxSize" : "6",
+          "MinSize" : "2",
+          "Tags" : [ {"Key" : "Name",
+                      "Value" : "ASG",
+                      "PropagateAtLaunch" : "True"} 
+                  ]
+      }
+          },
+          "myloadbalancer": {
+    "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
+    "Condition" : "CreateProdResources",
+    "Properties": {
+       "AvailabilityZones" : [ "us-east-1a" ],
+       "Listeners" : [{
+         "InstancePort": "80",
+         "InstanceProtocol" : "HTTP",
+         "LoadBalancerPort" : "80",
+         "Protocol" : "HTTP"
+       }],
+       "HealthCheck" : {
+         "Target" : "HTTP:80/",
+         "HealthyThreshold": "2",
+         "UnhealthyThreshold": "3",
+         "Interval": "10",
+         "Timeout": "5"
+       },
+       "Tags": [
+             {
+               "Key": "Name",
+               "Value": "myloadbalancer"
+             }
+       ]
+    }
+          }
+
+  },
+    "Outputs": {
+          
+      "VpcId" : {
+        "Description": "The ID of the VPC",
+        "Value" : 
+        { "Fn::GetAtt" : [ "mwvpc", "VpcId" ]},
+        "Export": {"Name": "MyVPCID"}
+          
+        },
+        
+      "PublicSubnet" : {
+        "Description": "This is the subnet ID for the publicsubnet",
+        "Value" : 
+        { "Ref": "publicsub" },
+        "Export" : {"Name" : "PublicSub"}
+          
+        },
+        
+      "PrivateSub1" : {
+        "Description": "This is the subnet ID for private subnet 1",
+        "Value" : 
+        { "Ref": "privatesub" },
+        "Export": {"Name": "PrivateSub1"}
+        },
+        
+      "PrivateSub2" : {
+        "Description": "This is the subnet ID for the private subnet 2",
+        "Value" : 
+        { "Ref": "privatesub2" },
+        "Export": {"Name": "privatesub2"}
+          
+     }
+        
+      }
+  }

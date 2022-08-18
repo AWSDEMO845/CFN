@@ -1,0 +1,38 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: ---
+Metadata: 
+
+Parameters: 
+ Environment:
+    Description: "Application environment"
+    Type: String
+    Default: development
+    AllowedValues:
+      - development
+      - testing
+      - acceptance
+      - production
+Mappings: 
+  EC2TypeBasedOnEnv:
+    development:
+        keyname: dev-key
+    testing:
+        keyname: test-key
+
+Conditions: 
+
+Resources: 
+  EC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      KeyName: !FindInMap [EC2TypeBasedOnEnv, !Ref Environment, keyname ]
+      ImageId: ami-0022f774911c1d690
+      InstanceType: 
+      Monitoring: false
+      SecurityGroupIds:
+        - launchwizard1
+      Tags:
+        - Key: Name
+          Value: EC2Instance
+
+Outputs:

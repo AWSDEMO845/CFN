@@ -1,0 +1,29 @@
+{
+"AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "This template is to test all what we have done with CloudFormation",
+    "Metadata": {
+
+    },
+    "Parameters": {
+        
+        "InstanceType": {
+            "Description": "This is the paramater for both instances",
+            "Type": "String",
+            "Default": "t2.micro"
+        }
+        
+    
+    },
+    "Mappings": {
+
+    },
+    "Conditions": {
+
+    },
+    "Resources": {
+
+    },
+    "Outputs": {
+
+    }
+}

@@ -1,0 +1,230 @@
+{
+"AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "",
+    "Metadata": {
+
+    },
+    "Parameters": {
+    
+    },
+    "Mappings": {
+
+    },
+    "Conditions": {
+
+    },
+    "Resources": {
+        "mwvpc": {
+            "Type": "AWS::EC2::VPC",
+            "Properties": {
+              "CidrBlock": "10.0.0.0/16",
+              "Tags":[
+              { "Key": "Name", "Value":  "mwvpc" }
+              ] 
+            }
+          },
+          
+          "publicsub": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+              "AvailabilityZone": "us-east-1a",
+              "VpcId": 
+              { "Ref": "mwvpc" }
+               ,
+              "CidrBlock": "10.0.1.0/24",
+              "Tags":[
+              { "Key": "Name", "Value":  "publicsub" }
+              ]
+            }
+          },
+          
+          "privatesub": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+              "AvailabilityZone": "us-east-1a",
+              "VpcId": 
+              { "Ref": "mwvpc" }
+              ,
+              "CidrBlock": "10.0.2.0/24", 
+              "Tags":[
+              { "Key": "Name", "Value":  "privatesub" }
+              ]
+            }
+          },
+          
+          "privatesub2": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+              "AvailabilityZone": "us-east-1a",
+              "VpcId": 
+              { "Ref": "mwvpc" }
+              ,
+              "CidrBlock": "10.0.3.0/24",
+              "Tags":[
+              { "Key": "Name", "Value":  "privatesub2" }
+              ]
+            }
+          },
+          
+          
+          "igwvpc": {
+            "Type": "AWS::EC2::InternetGateway",
+            "Properties": { 
+              "Tags":[
+              { "Key": "Name", "Value":  "igwvpc1" }
+              ]
+            }
+          },
+          "AttachGateway": {
+            "Type": "AWS::EC2::VPCGatewayAttachment",
+            "Properties": {
+              "VpcId": 
+              
+              { "Ref": "mwvpc" }
+               ,
+              "InternetGatewayId": { "Ref": "igwvpc" }
+            }
+          },
+          
+          "mwrt": {
+            "Type": "AWS::EC2::RouteTable",
+            "Properties": {
+              "VpcId": 
+              { "Ref": "mwvpc" }
+               ,
+              "Tags":[
+              { "Key": "Name", "Value":  "mwrt" }
+              ]
+            }
+          },
+          
+          "route": {
+            "Type": "AWS::EC2::Route",
+            "Properties": {
+              "RouteTableId": 
+              { "Ref": "mwrt" }
+              ,
+              "DestinationCidrBlock": "0.0.0.0/0",
+              "GatewayId": 
+              { "Ref": "igwvpc" }
+              
+            }
+          },
+          
+          "publicrtassoc": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+              "SubnetId": 
+              { "Ref": "publicsub" }
+               ,
+              "RouteTableId": 
+              { "Ref": "mwrt" }
+              
+            }
+          },
+          
+          "pvtrt": {
+            "Type": "AWS::EC2::RouteTable",
+            "Properties": {
+              "VpcId": 
+              { "Ref": "mwvpc" }
+               ,
+              "Tags":[
+              { "Key": "Name", "Value":  "pvtrt" }
+              ]
+            }
+          },
+          
+          "privatesubnetAssoc": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+              "SubnetId": 
+              { "Ref": "privatesub" }
+               ,
+              "RouteTableId": 
+              { "Ref": "pvtrt" }
+              
+            }
+          },
+          
+          "privatesub2assoc": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+              "SubnetId": 
+              { "Ref": "privatesub2" }
+               ,
+              "RouteTableId": 
+              { "Ref": "pvtrt" }
+              
+            }
+          },
+          
+          "NATvpc" : {
+            "Type" : "AWS::EC2::NatGateway",
+            "Properties" : {
+               "AllocationId" : { "Fn::GetAtt" : ["EIP", "AllocationId"]},
+               "SubnetId" : { "Ref" : "publicsub"},
+               "Tags" : [ {"Key" : "Name", "Value" : "NATvpc" } ]
+              }
+         },
+         "EIP" : {
+            "DependsOn" : "igwvpc"
+             ,
+            "Type" : "AWS::EC2::EIP",
+            "Properties" : {
+               "Domain" : 
+               { "Ref": "mwvpc" }
+               
+            }
+         }, 
+         "Route" : {
+          "Type" : "AWS::EC2::Route",
+          "Properties" : {
+             "RouteTableId" : { "Ref" : "pvtrt" },
+             "DestinationCidrBlock" : "0.0.0.0/0",
+             "NatGatewayId" : { "Ref" : "NATvpc" }
+          }
+       }
+       
+
+    },
+    "Outputs": {
+        "VpcId" : {
+          "Description" : "The ID of the VPC",
+          "Value" : 
+          { "Fn::GetAtt" : [ "mwvpc", "VpcId" ]}
+          ,
+          "Export" : {
+            "Name" : "MyVPCID"
+          }
+        },
+        "PublicSubnet": {
+          "Description" : "The subnet ID to use for public web servers",
+          "Value": 
+          { "Ref": "publicsub" }
+          ,
+          "Export" : {
+            "Name" : "publicsub"
+          }
+        },
+        "privatesub1": {
+          "Description": "This is the subnet ID to use for AppServers",
+          "Value" : 
+          { "Ref": "privatesub" },
+          "Export": {
+            "Name": "privatesub"
+          }
+          
+        },
+        "privatesub2": {
+          "Description": "This is the subnet ID for the Database",
+          "Value": 
+          { "Ref": "privatesub2" },
+          "Export": {
+            "Name": "privatesub2"
+          }
+          
+        }
+
+    }
+}
