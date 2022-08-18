@@ -1,3 +1,4 @@
+#This was done some weeks 
 {
     "AWSTemplateFormatVersion": "2010-09-09",
         "Description": "This template is to provision a 3 tier infrastructure in AWS",
